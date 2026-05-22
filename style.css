@@ -59,3 +59,90 @@ canvas {
   --safe-bottom: env(safe-area-inset-bottom);
   --safe-left: env(safe-area-inset-left);
 }
+
+
+/* === playable-ad-deploy override (auto) === */
+/* ----------------------------------------------------------------------
+ * style_overrides.css
+ *
+ * 部署到桌面浏览器时，把游戏窗口锁成 iPhone 14 Pro 比例（9:19.5）居中。
+ * 同时把 Cocos 在 body 上插入的 <video> 元素也强制锁进同一容器。
+ *
+ * 由 deploy_to_git.sh 在 push 时自动 append 到 style.css。
+ * ---------------------------------------------------------------------- */
+
+/* 1) 顶层背景：纯黑给两侧黑边一个干净的舞台感 */
+html, body {
+  background-color: #000 !important;
+  overflow: hidden;
+}
+
+/* 2) GameDiv：撑满视口，flex 居中内部容器 */
+#GameDiv {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100vw !important;
+  height: 100vh !important;
+  position: relative;
+  /* 让所有 absolute 子元素（包括 Cocos 自己 append 到 body 的 video）
+     都以这里为坐标参考。但 Cocos 的 video 通常贴 body 不贴 GameDiv，
+     见下面 "video" 规则。 */
+}
+
+/* 3) 真正约束尺寸的容器：9:19.5 (iPhone 14 Pro 比例) 居中
+ *    aspect-ratio + height:100vh：
+ *    - 桌面（横屏）→ 高度撑满，宽度 = 高度 * 9/19.5（约 0.46x），居中黑边
+ *    - 手机（竖屏）→ 高度撑满，宽度可能超出 100vw，被 max-width 拉回
+ *
+ *    这里用 9 / 19.5 = 0.4615...，对应 iPhone 14 Pro 的 1170×2532 比例。
+ *    如果想要老 iPhone 比例（9:16）改成 aspect-ratio: 9 / 16。 */
+#Cocos3dGameContainer {
+  aspect-ratio: 9 / 19.5 !important;
+  height: 100vh !important;
+  width: auto !important;
+  max-height: 100vh !important;
+  max-width: 100vw !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 4) Canvas 撑满容器 */
+#GameCanvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 5) 关键：Cocos 的 VideoPlayer 会在 <body> 下创建一个原生 <video> 元素，
+ *    用 position:absolute + 绝对像素定位（按 canvas 逻辑分辨率算）。
+ *    在桌面浏览器里这会让 video 跑出我们的 9:19.5 容器。
+ *
+ *    解决办法：强制让 body 下的所有 <video> 元素居中并按容器比例显示。
+ *    用 fixed 定位 + 9:19.5 锁定 + transform 居中。 */
+body > video,
+body > div > video {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  height: 100vh !important;
+  width: auto !important;
+  aspect-ratio: 9 / 19.5 !important;
+  max-width: 100vw !important;
+  object-fit: cover !important;
+  background: #000;
+  z-index: 999;
+}
+
+/* 6) 老浏览器兜底：不支持 aspect-ratio 时退化为简单 100%（铺满） */
+@supports not (aspect-ratio: 9 / 19.5) {
+  #Cocos3dGameContainer {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  body > video,
+  body > div > video {
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+}
